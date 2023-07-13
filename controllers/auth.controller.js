@@ -45,7 +45,7 @@ class AuthController {
       );
 
       res.json({
-        newUser: {
+        user: {
           id: newUser.rows[0].id,
           avatar: newUser.rows[0].avatar,
           age: newUser.rows[0].age,
@@ -62,10 +62,59 @@ class AuthController {
   }
 
   async login(req, res) {
-    
+    try {
+      const { login, password } = req.body;
+      const user = await db.query("SELECT * FROM users WHERE login = $1", [
+        login,
+      ]);
+
+      if (!user) {
+        return res.json({
+          message: "Такого юзера не существует.",
+        });
+      }
+
+      const isPasswordCorrect = await bcrypt.compare(
+        password,
+        user.rows[0].password
+      );
+
+      if (!isPasswordCorrect) {
+        return res.json({
+          message: "Неверный пароль.",
+        });
+      }
+
+      const token = jwt.sign(
+        {
+          id: user._id,
+        },
+        process.env.JWT_SECRET,
+        { expiresIn: "30d" }
+      );
+
+      res.json({
+        user: {
+          id: user.rows[0].id,
+          avatar: user.rows[0].avatar,
+          age: user.rows[0].age,
+          role: user.rows[0].role,
+          login: user.rows[0].login,
+        },
+        token,
+        message: "Вы вошли в систему.",
+      });
+    } catch (error) {
+      console.log(error);
+      res.json({
+        message: "Ошибка при авторизации.",
+        error,
+      });
+    }
   }
 
   async getMe(req, res) {
+    console.log(req)
     try {
       const user = await db.query("SELECT * FROM users WHERE id = $1", [
         req.userId,
